@@ -21,11 +21,18 @@ import static com.google.connector.snowflakeToBQ.util.ErrorCode.*;
 import com.google.cloud.bigquery.*;
 import com.google.connector.snowflakeToBQ.exception.SnowflakeConnectorException;
 import com.google.connector.snowflakeToBQ.model.datadto.BigQueryDetailsDataDTO;
+import com.google.connector.snowflakeToBQ.model.datadto.CDCBigQueryDetailsDataDTO;
 import com.google.connector.snowflakeToBQ.service.Instancecreator.BigQueryInstanceCreator;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import com.google.connector.snowflakeToBQ.service.bigqueryjoboptions.LoadJobFactory;
 import com.google.connector.snowflakeToBQ.service.bigqueryjoboptions.LoadOption;
+import com.google.connector.snowflakeToBQ.util.PropertyManager;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -48,14 +55,15 @@ public class BigQueryOperationsService {
   }
 
   /**
-   * Method to perform the load job in BigQuery.
+   * Method to perform the load job in BigQuery. This method has a check to make sure table is
+   * already created before it loads the data, it could be created by user manually or as a part of
+   * another flow of this application
    *
    * @param bigqueryDetailsDto required parameter for executing the load job.
    * @return @boolean status
    */
-  public boolean loadBigQueryJob(BigQueryDetailsDataDTO bigqueryDetailsDto) {
-    // Create the Translation Service client
-    boolean returnValue = false;
+  public boolean loadDataToExistingTable(BigQueryDetailsDataDTO bigqueryDetailsDto) {
+
     TableId tableId =
         TableId.of(
             bigqueryDetailsDto.getProjectId(),
@@ -63,6 +71,8 @@ public class BigQueryOperationsService {
             bigqueryDetailsDto.getTableName());
 
     // Validating if the table for which load job is to perform exists or not
+    // This logic is important because table gets used to get the schema and same is used during the
+    // load job. This tool also supports CSV load hence providing schema is important.
     if (!isTableExists(bigqueryDetailsDto)) {
       log.error(
           "Error Message:{},Error Code:{}, table name:{}",
@@ -76,6 +86,67 @@ public class BigQueryOperationsService {
     Schema tableSchema =
         bigQueryInstanceCreator.getBigQueryClient().getTable(tableId).getDefinition().getSchema();
 
+    return loadJob(bigqueryDetailsDto, tableSchema);
+  }
+
+  /**
+   * This method executes the bigquery load job using write truncate disposition. It deletes the
+   * existing data in the table and inserts new one based on the GCS file and load job configuration
+   *
+   * @param <T> required parameter for executing the load job. It could be the {@link
+   *     BigQueryDetailsDataDTO} or class which inherits it.
+   * @return @boolean status
+   */
+  public <T extends BigQueryDetailsDataDTO> boolean loadDataUsingWriteDisposition(T detailsDTO) {
+
+    TableId tableId;
+    if (detailsDTO instanceof CDCBigQueryDetailsDataDTO) {
+      CDCBigQueryDetailsDataDTO cdcBigQueryDetailsDataDTO = (CDCBigQueryDetailsDataDTO) detailsDTO;
+      // Here the base table is used for fetching the schema instead of the stream table just to
+      // keep the execution simple and process tied to base table. Assumption is in case of any
+      // alter in column, same will be applied to based table before bringing the cdc data.
+      // Stream table will be assumed as stage table in BigQuery which will get merged to base
+      // table.
+      tableId =
+          TableId.of(
+              cdcBigQueryDetailsDataDTO.getProjectId(),
+              cdcBigQueryDetailsDataDTO.getDatasetId(),
+              cdcBigQueryDetailsDataDTO.getBaseTableNameInBQ());
+    } else {
+      tableId =
+          TableId.of(
+              detailsDTO.getProjectId(), detailsDTO.getDatasetId(), detailsDTO.getTableName());
+    }
+    // This logic is converting additional columns into the @Field object which can be added in
+    // bigquery @Schema object. This was needed specifically for CDC approach where there were few
+    // additional metadata column were present in the table in Snowflakes
+    List<Field> additionalFields =
+        detailsDTO.getColumnMetadata().entrySet().stream()
+            .map(this::convertToField)
+            .collect(Collectors.toList());
+
+    // Use the fields as needed
+    // fetching the schema of the table
+    Schema tableSchema =
+        bigQueryInstanceCreator.getBigQueryClient().getTable(tableId).getDefinition().getSchema();
+    // Adding exitsing column first so keep the sequence correct in table as this table gets created
+    // at runtime.
+    ArrayList<Field> additionalColumnsTemp = new ArrayList<>(tableSchema.getFields());
+    // Adding the additional columns in table column list.
+    additionalColumnsTemp.addAll(additionalFields);
+
+    return loadJob(detailsDTO, Schema.of(additionalColumnsTemp));
+  }
+
+  public boolean loadJob(BigQueryDetailsDataDTO bigqueryDetailsDto, Schema tableSchema) {
+
+    boolean returnValue = false;
+    TableId tableId =
+        TableId.of(
+            bigqueryDetailsDto.getProjectId(),
+            bigqueryDetailsDto.getDatasetId(),
+            bigqueryDetailsDto.getTableName());
+
     String sourceURI =
         String.format(
             "gs://%s/%s/*",
@@ -84,15 +155,16 @@ public class BigQueryOperationsService {
     // Getting the appropriate loadjobconfiguration object based on the csv format received in the
     // request.
     // It could be CSV, Parquet etc.
+
     LoadJobConfiguration loadConfig =
         loadJobFactory
             .createService(
                 LoadOption.valueOf(bigqueryDetailsDto.getBqLoadFileFormat()), tableSchema)
-            .createLoadJob(tableId, sourceURI);
+            .createLoadJob(tableId, sourceURI, getWriteDisposition(bigqueryDetailsDto));
 
     JobId jobId =
         JobId.newBuilder()
-            .setJob("Snowflake_" + UUID.randomUUID())
+            .setJob(bigqueryDetailsDto.getBigqueryJobNamePrefix() + UUID.randomUUID())
             .setLocation(
                 StringUtils.isBlank(bigqueryDetailsDto.getLocation())
                     ? "us"
@@ -184,7 +256,7 @@ public class BigQueryOperationsService {
     // creating the jobId
     JobId jobId =
         JobId.newBuilder()
-            .setJob("Snowflake_" + UUID.randomUUID())
+            .setJob(PropertyManager.MIGRATION_JOB_NAME_PREFIX + UUID.randomUUID())
             .setLocation(StringUtils.isBlank(location) ? "us" : location)
             .build();
     // Executing the query job
@@ -216,5 +288,64 @@ public class BigQueryOperationsService {
           BQ_QUERY_JOB_EXECUTION_ERROR.getMessage(), BQ_QUERY_JOB_EXECUTION_ERROR.getErrorCode());
     }
     return jobStatus;
+  }
+
+  /**
+   * Method to map the user defined disposition to the BigQuery Write disposition. Currently user
+   * defined displosition name is key same as @{@link JobInfo.WriteDisposition} to keep the mapping
+   * logic simple, any discrepancies would lead to errors dueing mapping.
+   *
+   * @param bigqueryDetailsDto dto containing the required details like tablename, dataset,
+   * @return @{@link JobInfo.WriteDisposition}
+   */
+  private JobInfo.WriteDisposition getWriteDisposition(BigQueryDetailsDataDTO bigqueryDetailsDto) {
+    // Get the write disposition from the DTO
+    String writeDisposition = bigqueryDetailsDto.getWriteDisposition().name();
+
+    if (writeDisposition.equals("NA")) {
+      return null;
+    }
+    return JobInfo.WriteDisposition.valueOf(writeDisposition);
+  }
+
+  /**
+   * Helper method to create Field object based on the received map.
+   *
+   * @param metadata map contains column name as key and its data type as value.
+   * @return @{@link Field} object for a column
+   */
+  private Field convertToField(Map.Entry<String, BigQueryDetailsDataDTO.Datatypes> metadata) {
+    StandardSQLTypeName type = mapToStandardSQLType(metadata.getValue());
+    return Field.of(metadata.getKey(), type);
+  }
+
+  /**
+   * Helper method to map the user defined datatype to actual BigQuery @{@link StandardSQLTypeName}
+   *
+   * @param dataType Datatype provided by user. It's currently an ENUM created in the application.
+   *     it can be updated based on the need.
+   * @return @{@link StandardSQLTypeName} which are BigQuery compatible
+   */
+  private StandardSQLTypeName mapToStandardSQLType(BigQueryDetailsDataDTO.Datatypes dataType) {
+    switch (dataType) {
+      case STRING:
+        return StandardSQLTypeName.STRING;
+      case BOOL:
+        return StandardSQLTypeName.BOOL;
+      case INT64:
+        return StandardSQLTypeName.INT64;
+      case TIMESTAMP:
+        return StandardSQLTypeName.TIMESTAMP;
+      case FLOAT64:
+        return StandardSQLTypeName.FLOAT64;
+      case NUMERIC:
+        return StandardSQLTypeName.NUMERIC;
+      case BIGNUMERIC:
+        return StandardSQLTypeName.BIGNUMERIC;
+      case DATE:
+        return StandardSQLTypeName.DATE;
+      default:
+        throw new IllegalArgumentException("Unknown data type, no mapping found " + dataType);
+    }
   }
 }

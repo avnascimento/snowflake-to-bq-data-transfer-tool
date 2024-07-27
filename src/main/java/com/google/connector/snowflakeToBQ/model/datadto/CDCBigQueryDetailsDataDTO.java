@@ -14,15 +14,28 @@
  * limitations under the License.
  */
 
-package com.google.connector.snowflakeToBQ.service.bigqueryjoboptions;
+package com.google.connector.snowflakeToBQ.model.datadto;
 
-import com.google.cloud.bigquery.JobInfo;
-import com.google.cloud.bigquery.LoadJobConfiguration;
-import com.google.cloud.bigquery.TableId;
+import lombok.Getter;
+import lombok.Setter;
 
-/** Class to help implementing the factory pattern for LoadOption. */
-public interface LoadJobOptions {
+/**
+ * Class which will be used by services and hold the data related to BigQuery and helps in BigQuery
+ * related operations
+ */
+@Setter
+@Getter
+public class CDCBigQueryDetailsDataDTO extends BigQueryDetailsDataDTO {
 
-  LoadJobConfiguration createLoadJob(
-      TableId tableId, String sourceURI, JobInfo.WriteDisposition writeDisposition);
+  private String baseTableNameInBQ;
+
+  @Override
+  public String toString() {
+    return super.toString()
+        + ", CDCBigQueryDetailsDataDTO{"
+        + "baseTableNameInBQ='"
+        + baseTableNameInBQ
+        + '\''
+        + '}';
+  }
 }

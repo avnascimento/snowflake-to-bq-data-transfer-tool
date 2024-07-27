@@ -17,17 +17,26 @@
 package com.google.connector.snowflakeToBQ.mapper;
 
 import com.google.connector.snowflakeToBQ.entity.ApplicationConfigData;
+import com.google.connector.snowflakeToBQ.entity.CDCJobConfigData;
 import com.google.connector.snowflakeToBQ.model.datadto.*;
+import com.google.connector.snowflakeToBQ.model.request.SFCDCRequestDTO;
 import com.google.connector.snowflakeToBQ.model.request.SFDataMigrationRequestDTO;
 import com.google.connector.snowflakeToBQ.model.request.SFExtractAndTranslateDDLRequestDTO;
 import com.google.connector.snowflakeToBQ.model.response.SFDataMigrationResponse;
+import com.google.connector.snowflakeToBQ.util.PropertyManager;
 import org.slf4j.MDC;
+
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
+import static com.google.connector.snowflakeToBQ.util.PropertyManager.OUTPUT_FORMATTER1;
 
 /** Class which provides methods to map request DTOs with data DTOs */
 public interface MigrateRequestMapper {
 
   /**
-   * Method to convert {@link ApplicationConfigData} values from the {@link
+   * Method to populate {@link ApplicationConfigData} values from the {@link
    * SFDataMigrationRequestDTO}.
    */
   static ApplicationConfigData getApplicationConfigEntityFromSFDataMigrationRequestDTO(
@@ -54,6 +63,44 @@ public interface MigrateRequestMapper {
     applicationConfigData.setRequestLogId(MDC.get("requestLogId"));
 
     return applicationConfigData;
+  }
+
+  /**
+   * Method to populate {@link com.google.connector.snowflakeToBQ.entity.CDCJobConfigData} values
+   * from the {@link SFDataMigrationRequestDTO}.
+   */
+  static List<CDCJobConfigData> getCDCJobConfigFromSFCDCRequestDTO(
+      SFCDCRequestDTO sfcdcRequestDTO) {
+
+    List<CDCJobConfigData> cdcJobConfigDataList = new ArrayList<>();
+
+    String[] sourceTableNames = sfcdcRequestDTO.getSourceTableName().split(",");
+
+    for (String sourceTableName : sourceTableNames) {
+      CDCJobConfigData cdcJobConfigData = new CDCJobConfigData();
+
+      cdcJobConfigData.setSourceDatabaseName(sfcdcRequestDTO.getSourceDatabaseName());
+      cdcJobConfigData.setSourceSchemaName(sfcdcRequestDTO.getSourceSchemaName());
+      cdcJobConfigData.setSourceTableName(sourceTableName.trim());
+      cdcJobConfigData.setTargetDatabaseName(sfcdcRequestDTO.getTargetDatabaseName());
+      cdcJobConfigData.setTargetSchemaName(sfcdcRequestDTO.getTargetSchemaName());
+      cdcJobConfigData.setTargetTableName(sourceTableName.trim());
+      cdcJobConfigData.setBaseTableNameInBQ(sfcdcRequestDTO.getBaseTableInBQ());
+      cdcJobConfigData.setLocation(sfcdcRequestDTO.getLocation());
+      cdcJobConfigData.setSnowflakeStageLocation(sfcdcRequestDTO.getSnowflakeStageLocation());
+      cdcJobConfigData.setBqLoadFileFormat(sfcdcRequestDTO.getBqLoadFileFormat());
+      cdcJobConfigData.setSnowflakeFileFormatValue(
+          sfcdcRequestDTO.getSnowflakeFileFormatValue());
+      cdcJobConfigData.setCronExpression(
+              sfcdcRequestDTO.getCronExpression());
+      cdcJobConfigData.setCreatedTime(
+          PropertyManager.getDateInDesiredFormat(LocalDateTime.now(), OUTPUT_FORMATTER1));
+      cdcJobConfigData.setLastUpdatedTime(
+          PropertyManager.getDateInDesiredFormat(LocalDateTime.now(), OUTPUT_FORMATTER1));
+      cdcJobConfigData.setRequestLogId(MDC.get("requestLogId"));
+      cdcJobConfigDataList.add(cdcJobConfigData);
+    }
+    return cdcJobConfigDataList;
   }
 
   /**
@@ -233,7 +280,7 @@ public interface MigrateRequestMapper {
   }
 
   /** This method just a helper method for above code so that duplicate code gets avoided. */
-  private static TranslateDDLDataDTO getTranslateDDLDataDTO(
+  static TranslateDDLDataDTO getTranslateDDLDataDTO(
       String sourceDatabaseName,
       String sourceSchemaName,
       String targetDatabaseName,
@@ -249,5 +296,19 @@ public interface MigrateRequestMapper {
     translateDDLDataDTO.setTranslationJobLocation(translationJobLocation);
     translateDDLDataDTO.setGcsBucketForTranslation(gcsBucketForTranslation);
     return translateDDLDataDTO;
+  }
+
+  static CDCBigQueryDetailsDataDTO cdcJobRequestToBigQueryDetailDataDto(
+      CDCJobConfigData cdcJobConfigData) {
+    CDCBigQueryDetailsDataDTO cdcBigQueryDetailsDataDTO = new CDCBigQueryDetailsDataDTO();
+    cdcBigQueryDetailsDataDTO.setUniqueIdentifier(cdcJobConfigData.getId());
+    cdcBigQueryDetailsDataDTO.setProjectId(cdcJobConfigData.getTargetDatabaseName());
+    cdcBigQueryDetailsDataDTO.setDatasetId(cdcJobConfigData.getTargetSchemaName());
+    cdcBigQueryDetailsDataDTO.setTableName(cdcJobConfigData.getTargetTableName());
+    cdcBigQueryDetailsDataDTO.setSnowflakeDataUnloadGCSPath(cdcJobConfigData.getSnowflakeStageLocation());
+    cdcBigQueryDetailsDataDTO.setBqLoadFileFormat(cdcJobConfigData.getBqLoadFileFormat());
+    cdcBigQueryDetailsDataDTO.setLocation(cdcJobConfigData.getLocation());
+    cdcBigQueryDetailsDataDTO.setBaseTableNameInBQ(cdcJobConfigData.getBaseTableNameInBQ());
+    return cdcBigQueryDetailsDataDTO;
   }
 }

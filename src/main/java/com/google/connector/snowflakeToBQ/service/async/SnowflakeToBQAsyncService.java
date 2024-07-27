@@ -90,6 +90,7 @@ public class SnowflakeToBQAsyncService {
 
     BigQueryDetailsDataDTO bigQueryDetailsDataDTO =
         MigrateRequestMapper.migrateRequestToBigQueryDetailDataDto(applicationConfigData);
+    bigQueryDetailsDataDTO.setBigqueryJobNamePrefix("snowflake_migration_");
     log.info(
         "The value received for applicationConfigData.isBQTableCreated() property is ::{}",
         applicationConfigData.isBQTableCreated());
@@ -173,7 +174,7 @@ public class SnowflakeToBQAsyncService {
     // Checking if this step is already completed
     if (!applicationConfigData.isDataLoadedInBQ()) {
       try {
-        bigQueryOperationsService.loadBigQueryJob(bigQueryDetailsDataDTO);
+        bigQueryOperationsService.loadDataToExistingTable(bigQueryDetailsDataDTO);
       } catch (Exception e) {
         log.error(
             "Error while loading data in the table:{} ",

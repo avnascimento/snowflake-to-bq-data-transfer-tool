@@ -63,7 +63,7 @@ public class SnowflakeToBQAsyncServiceTest extends AbstractTestBase {
   public void testSnowflakeUnloadToBQLoad() throws ExecutionException, InterruptedException {
     when(bigQueryOperationsService.createTableUsingDDL(any(String.class), any(String.class)))
         .thenReturn(true);
-    when(bigQueryOperationsService.loadBigQueryJob(any(BigQueryDetailsDataDTO.class)))
+    when(bigQueryOperationsService.loadDataToExistingTable(any(BigQueryDetailsDataDTO.class)))
         .thenReturn(true);
     when(snowflakesService.executeUnloadDataCommand(anyString(), anyString(), anyString()))
         .thenReturn("1234-abdc-fghi-handle");
@@ -117,7 +117,7 @@ public class SnowflakeToBQAsyncServiceTest extends AbstractTestBase {
   @Test
   public void testSnowflakeUnloadToBQLoadManyConditionAlreadyDone()
       throws ExecutionException, InterruptedException {
-    when(bigQueryOperationsService.loadBigQueryJob(any(BigQueryDetailsDataDTO.class)))
+    when(bigQueryOperationsService.loadDataToExistingTable(any(BigQueryDetailsDataDTO.class)))
         .thenReturn(true);
     ApplicationConfigData applicationConfigData = new ApplicationConfigData();
     applicationConfigData.setId(1L);
@@ -153,7 +153,7 @@ public class SnowflakeToBQAsyncServiceTest extends AbstractTestBase {
       throws ExecutionException, InterruptedException {
     doThrow(RuntimeException.class)
         .when(bigQueryOperationsService)
-        .loadBigQueryJob(any(BigQueryDetailsDataDTO.class));
+        .loadDataToExistingTable(any(BigQueryDetailsDataDTO.class));
     ApplicationConfigData applicationConfigData = new ApplicationConfigData();
     applicationConfigData.setId(1L);
     // Setting this true to reproduce a situation where previous job was  done till the point of

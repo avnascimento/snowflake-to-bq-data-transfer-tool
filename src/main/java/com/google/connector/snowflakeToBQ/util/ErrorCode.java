@@ -45,7 +45,8 @@ public enum ErrorCode {
   DECRYPTION_ERROR(1013, "Error: Decrypting the values"),
   TABLE_NOT_EXISTS(1014, "Error: table does not exists"),
   DDL_EXTRACTION_EXCEPTION(1015, "Error: Extracting DDL"),
-  SNOWFLAKE_REST_API_EXECUTION_ERROR(1016, "Error: Snowflake rest API execution");
+  SNOWFLAKE_REST_API_EXECUTION_ERROR(1016, "Error: Snowflake rest API execution"),
+  BQ_QUERY_WRITE_ROWS_ERROR(1017, "Error: During the BigQuery write operation");
 
   private final int errorCode;
   private final String message;

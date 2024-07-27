@@ -21,14 +21,17 @@ import static com.google.connector.snowflakeToBQ.util.PropertyManager.OUTPUT_FOR
 import com.google.connector.snowflakeToBQ.config.OAuthCredentials;
 import com.google.connector.snowflakeToBQ.model.EncryptedData;
 import com.google.connector.snowflakeToBQ.model.OperationResult;
+import com.google.connector.snowflakeToBQ.model.request.SFCDCRequestDTO;
 import com.google.connector.snowflakeToBQ.model.request.SFDataMigrationRequestDTO;
 import com.google.connector.snowflakeToBQ.model.request.SFExtractAndTranslateDDLRequestDTO;
 import com.google.connector.snowflakeToBQ.model.request.SnowflakeUnloadToGCSRequestDTO;
+import com.google.connector.snowflakeToBQ.model.response.CDCJobTriggerResponse;
 import com.google.connector.snowflakeToBQ.service.ApplicationConfigDataService;
 import com.google.connector.snowflakeToBQ.service.ExtractAndTranslateDDLService;
 import com.google.connector.snowflakeToBQ.service.SnowflakeMigrateDataService;
 import com.google.connector.snowflakeToBQ.service.TokenRefreshService;
 import com.google.connector.snowflakeToBQ.service.async.SnowflakeUnloadToGCSAsyncService;
+import com.google.connector.snowflakeToBQ.service.cdc.SnowflakeCDCService;
 import com.google.connector.snowflakeToBQ.util.PropertyManager;
 import com.google.connector.snowflakeToBQ.util.encryption.EncryptValues;
 import java.time.LocalDateTime;
@@ -50,7 +53,7 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/connector")
 public class SnowflakesConnectorController {
   private static final Logger log = LoggerFactory.getLogger(SnowflakesConnectorController.class);
-  public static final String REQUEST_LOG_ID = "requestLogId";
+  private static final String REQUEST_LOG_ID = "requestLogId";
   final EncryptValues encryptValues;
   final TokenRefreshService tokenRefreshService;
   final SnowflakeMigrateDataService snowflakeMigrateDataService;
@@ -61,6 +64,8 @@ public class SnowflakesConnectorController {
 
   final OAuthCredentials oauthCredentials;
 
+  final SnowflakeCDCService snowflakeCDCService;
+
   public SnowflakesConnectorController(
       EncryptValues encryptValues,
       TokenRefreshService tokenRefreshService,
@@ -68,7 +73,8 @@ public class SnowflakesConnectorController {
       OAuthCredentials oauthCredentials,
       ExtractAndTranslateDDLService extractDDLService,
       SnowflakeUnloadToGCSAsyncService snowflakeUnloadToGCSAsyncService,
-      ApplicationConfigDataService applicationConfigDataService) {
+      ApplicationConfigDataService applicationConfigDataService,
+      SnowflakeCDCService snowflakeCDCService) {
     this.encryptValues = encryptValues;
     this.tokenRefreshService = tokenRefreshService;
     this.snowflakeMigrateDataService = snowflakeMigrateDataService;
@@ -76,19 +82,20 @@ public class SnowflakesConnectorController {
     this.extractDDLService = extractDDLService;
     this.snowflakeUnloadToGCSAsyncService = snowflakeUnloadToGCSAsyncService;
     this.applicationConfigDataService = applicationConfigDataService;
+    this.snowflakeCDCService = snowflakeCDCService;
   }
 
   /**
    * Method/API to receive the Snowflake migration request to migrate a table/schema/database from
-   * snowflakes to BigQuery. Its a full migration request which performs, extract ddl, translate
+   * snowflakes to BigQuery. It's a full migration request which performs, extract ddl, translate
    * ddl, Snowflake data unload to GCS and the load it to BigQuery after creating the table(if
    * request). This API should be used if user need all four steps otherwise other request API can
    * be referred which performs individual operations
    *
    * @param sfDataMigrationRequestDTO Its contains data sent by a client as a part of this
    *     HTTP/HTTPS request. It contains all the required parameter for performing the migration.
-   * @return response of the migration in @{@link String} Response just gives a message indicating
-   *     the flow is complete
+   * @return response of the migration in @{@link ResponseEntity} Response to provide the required
+   *     details of the operation performed.
    */
   @PostMapping("/migrate-data")
   public ResponseEntity<?> migrateData(
@@ -219,6 +226,59 @@ public class SnowflakesConnectorController {
   }
 
   /**
+   * Method/API to receive a request to start CDC task(s)/job(s) for table(s) between Snowflake and
+   * BigQuery
+   *
+   * @param sfcdcRequestDTO Its contains data sent by a client as a part of this * HTTP/HTTPS
+   *     request. It contains all the required parameter for performing the CDC operation.
+   * @return response of the request in @{@link ResponseEntity} to provide the scheduled taskIds.
+   */
+  @PostMapping("/snowflake-cdc-to-bigquery")
+  public ResponseEntity<List<CDCJobTriggerResponse>> snowflakeCDCToBigQuery(
+      @NonNull @RequestBody @Valid SFCDCRequestDTO sfcdcRequestDTO) {
+    /*
+     * MDC (Mapped Diagnostic Context): MDC is a feature provided by logging frameworks to allow the
+     * association of key-value pairs with a thread of execution. These key-value pairs can be used
+     * to enrich log entries with context-specific information. For example, we have associate a
+     * unique "requestId" with each incoming HTTP request to track log entries related to that
+     * specific request.
+     */
+    MDC.put(REQUEST_LOG_ID, UUID.randomUUID().toString());
+    List<CDCJobTriggerResponse> taskIds =
+        snowflakeCDCService.triggerCDCForInputTables(sfcdcRequestDTO);
+    log.info("Total number of tasks scheduled are:{}", taskIds.size());
+
+    // Removing the MDC key which is associated in the MDC
+    MDC.remove(REQUEST_LOG_ID);
+
+    return ResponseEntity.ok(taskIds);
+  }
+
+  /**
+   * Method/API to receive a request to stop the CDC task(s)/job(s) for a table(s) running between
+   * Snowflake and BigQuery
+   *
+   * @param taskIds taskIds of the scheduled jobs which were scheduler using other requests
+   * @return message to represent the request status and metrics of tasks
+   */
+  @PostMapping("/stop-cdc-for-table")
+  public ResponseEntity<?> stopCDCTasksForTables(
+      @NonNull @RequestBody @Valid Map<String, String> taskIds) {
+    /*
+     * MDC (Mapped Diagnostic Context): MDC is a feature provided by logging frameworks to allow the
+     * association of key-value pairs with a thread of execution. These key-value pairs can be used
+     * to enrich log entries with context-specific information. For example, we have associate a
+     * unique "requestId" with each incoming HTTP request to track log entries related to that
+     * specific request.
+     */
+    MDC.put(REQUEST_LOG_ID, UUID.randomUUID().toString());
+    String response = snowflakeCDCService.stopCDCTasksForTables(taskIds.get("taskIds"));
+    // Removing the MDC key which is associated in the MDC
+    MDC.remove(REQUEST_LOG_ID);
+    return ResponseEntity.ok(response);
+  }
+
+  /**
    * This method saves the received values in the OAuthCredential Map. There is no restriction of
    * what all credentialsData can be sent but three important fields are required (clientId,
    * clientSecret, refreshToken). Method encrypts the received data and then save it in the map
@@ -274,7 +334,8 @@ public class SnowflakesConnectorController {
   }
 
   /**
-   * Method to encrypt any received values in map. It then returns the encrypted value to the called.
+   * Method to encrypt any received values in map. It then returns the encrypted value to the
+   * called.
    *
    * @param data Map containing the values to be encrypted
    * @return encrypted value map.

@@ -74,7 +74,7 @@ public class BigQueryOperationsServiceTest extends AbstractTestBase {
     when(mockJob.waitFor()).thenReturn(mockJob);
     when(mockJob.getStatus()).thenReturn(mockJobStatus);
     when(mockJobStatus.getError()).thenReturn(null);
-    boolean jobStatus = bigQueryOperationsService.loadBigQueryJob(bigQueryDetailsDto);
+    boolean jobStatus = bigQueryOperationsService.loadDataToExistingTable(bigQueryDetailsDto);
     Assert.assertTrue(jobStatus);
   }
 
@@ -113,7 +113,7 @@ public class BigQueryOperationsServiceTest extends AbstractTestBase {
     when(mockJobStatus.getError())
         .thenReturn(
             new BigQueryError("Test Error", "in test", "This is mocked error from test case"));
-    boolean jobStatus = bigQueryOperationsService.loadBigQueryJob(bigQueryDetailsDto);
+    boolean jobStatus = bigQueryOperationsService.loadDataToExistingTable(bigQueryDetailsDto);
     Assert.assertFalse(jobStatus);
   }
 
@@ -148,7 +148,7 @@ public class BigQueryOperationsServiceTest extends AbstractTestBase {
     // Set a value in the mock job
     when(mockJob.waitFor()).thenReturn(null);
 
-    boolean jobStatus = bigQueryOperationsService.loadBigQueryJob(bigQueryDetailsDto);
+    boolean jobStatus = bigQueryOperationsService.loadDataToExistingTable(bigQueryDetailsDto);
     Assert.assertFalse(jobStatus);
   }
 
@@ -182,7 +182,7 @@ public class BigQueryOperationsServiceTest extends AbstractTestBase {
     doThrow(RuntimeException.class).when(bigqueryMock).create(any(JobInfo.class));
     when(mockJob.waitFor()).thenReturn(null);
     try {
-      boolean jobStatus = bigQueryOperationsService.loadBigQueryJob(bigQueryDetailsDto);
+      boolean jobStatus = bigQueryOperationsService.loadDataToExistingTable(bigQueryDetailsDto);
       Assert.fail();
     } catch (SnowflakeConnectorException e) {
       Assert.assertEquals(ErrorCode.BQ_QUERY_JOB_EXECUTION_ERROR.getMessage(), e.getMessage());

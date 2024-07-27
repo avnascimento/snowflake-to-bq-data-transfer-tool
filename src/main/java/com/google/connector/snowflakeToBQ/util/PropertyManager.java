@@ -31,6 +31,8 @@ public class PropertyManager {
   public static String SNOWFLAKE_TRANSLATED_FOLDER_PREFIX = "translated-snowflake-ddls";
   public static String BACKUP_FOLDER_PREFIX = "backup-ddls";
   public static String DDL_PREFIX = "snowflake-ddls";
+  public static String CDC_JOB_NAME_PREFIX = "snowflake_cdc_";
+  public static String MIGRATION_JOB_NAME_PREFIX = "Snowflake_";
 
   public static String getDateInDesiredFormat(
       LocalDateTime localDateTime, DateTimeFormatter outputFormat) {

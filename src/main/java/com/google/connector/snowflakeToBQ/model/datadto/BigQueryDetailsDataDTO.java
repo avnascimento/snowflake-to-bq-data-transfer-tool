@@ -19,6 +19,8 @@ package com.google.connector.snowflakeToBQ.model.datadto;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.Map;
+
 /**
  * Class which will be used by services and hold the data related to BigQuery and helps in BigQuery
  * related operations
@@ -27,15 +29,38 @@ import lombok.Setter;
 @Getter
 public class BigQueryDetailsDataDTO {
 
-  long uniqueIdentifier;
-  String projectId;
-  String datasetId;
-  String tableName;
-  String bucketName;
-  String gcsDDLFilePath;
-  String snowflakeDataUnloadGCSPath;
-  String bqLoadFileFormat;
-  String location;
+  private long uniqueIdentifier;
+  private String projectId;
+  private String datasetId;
+  private String tableName;
+  private String bucketName;
+  private String gcsDDLFilePath;
+  private String snowflakeDataUnloadGCSPath;
+  private String bqLoadFileFormat;
+  private String location;
+  private String bigqueryJobNamePrefix;
+
+  private Map<String, Datatypes> columnMetadata;
+
+  private WriteDispositionValue writeDisposition = WriteDispositionValue.NA;
+
+  public enum WriteDispositionValue {
+    WRITE_TRUNCATE,
+    WRITE_APPEND,
+    WRITE_EMPTY,
+    NA
+  }
+
+  public enum Datatypes {
+    STRING,
+    INT64,
+    TIMESTAMP,
+    BOOL,
+    FLOAT64,
+    NUMERIC,
+    BIGNUMERIC,
+    DATE
+  }
 
   @Override
   public String toString() {
@@ -66,6 +91,13 @@ public class BigQueryDetailsDataDTO {
         + ", location='"
         + location
         + '\''
+        + ", bigqueryJobNamePrefix='"
+        + bigqueryJobNamePrefix
+        + '\''
+        + ", columnMetadata="
+        + columnMetadata
+        + ", writeDisposition="
+        + writeDisposition
         + '}';
   }
 }

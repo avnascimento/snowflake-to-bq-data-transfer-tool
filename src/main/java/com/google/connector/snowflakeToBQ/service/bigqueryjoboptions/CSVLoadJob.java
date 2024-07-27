@@ -16,10 +16,7 @@
 
 package com.google.connector.snowflakeToBQ.service.bigqueryjoboptions;
 
-import com.google.cloud.bigquery.FormatOptions;
-import com.google.cloud.bigquery.LoadJobConfiguration;
-import com.google.cloud.bigquery.Schema;
-import com.google.cloud.bigquery.TableId;
+import com.google.cloud.bigquery.*;
 
 /** Class to create the {@link com.google.cloud.bigquery.LoadConfiguration} for CSV format. */
 public class CSVLoadJob implements LoadJobOptions {
@@ -39,10 +36,16 @@ public class CSVLoadJob implements LoadJobOptions {
    * @return LoadConfiguration
    */
   @Override
-  public LoadJobConfiguration createLoadJob(TableId tableId, String sourceURI) {
-    return LoadJobConfiguration.newBuilder(tableId, sourceURI)
-        .setFormatOptions(FormatOptions.csv().toBuilder().setSkipLeadingRows(1).build())
-        .setSchema(schema)
-        .build();
+  public LoadJobConfiguration createLoadJob(
+      TableId tableId, String sourceURI, JobInfo.WriteDisposition writeDisposition) {
+
+    LoadJobConfiguration.Builder loadJobConfigBuilder =
+        LoadJobConfiguration.newBuilder(tableId, sourceURI)
+            .setFormatOptions(FormatOptions.csv().toBuilder().setSkipLeadingRows(1).build())
+            .setSchema(schema);
+    if (writeDisposition != null) {
+      loadJobConfigBuilder.setWriteDisposition(writeDisposition);
+    }
+    return loadJobConfigBuilder.build();
   }
 }

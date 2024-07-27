@@ -14,15 +14,19 @@
  * limitations under the License.
  */
 
-package com.google.connector.snowflakeToBQ.service.bigqueryjoboptions;
+package com.google.connector.snowflakeToBQ.config.cdc;
 
-import com.google.cloud.bigquery.JobInfo;
-import com.google.cloud.bigquery.LoadJobConfiguration;
-import com.google.cloud.bigquery.TableId;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 
-/** Class to help implementing the factory pattern for LoadOption. */
-public interface LoadJobOptions {
-
-  LoadJobConfiguration createLoadJob(
-      TableId tableId, String sourceURI, JobInfo.WriteDisposition writeDisposition);
+@Configuration
+public class CDCJobScheduler {
+    @Bean
+    public ThreadPoolTaskScheduler taskScheduler() {
+        ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
+        scheduler.setPoolSize(10);
+        scheduler.setThreadNamePrefix("CDC-");
+        return scheduler;
+    }
 }

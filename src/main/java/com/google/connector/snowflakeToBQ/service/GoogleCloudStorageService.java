@@ -16,6 +16,7 @@
 
 package com.google.connector.snowflakeToBQ.service;
 
+import com.google.api.gax.paging.Page;
 import com.google.cloud.storage.*;
 import com.google.connector.snowflakeToBQ.exception.SnowflakeConnectorException;
 import com.google.connector.snowflakeToBQ.model.datadto.GCSDetailsDataDTO;
@@ -197,5 +198,38 @@ public class GoogleCloudStorageService {
   private BlobInfo createFolder(String bucketName, String folderName) {
     BlobInfo folderInfo = BlobInfo.newBuilder(BlobId.of(bucketName, folderName + "/")).build();
     return storageInstanceCreator.getStorageClient().create(folderInfo);
+  }
+
+  private void batchDeleteObjects(String bucketName, String directoryPrefix) {
+    Page<Blob> blobs;
+    try {
+      blobs =
+          storageInstanceCreator
+              .getStorageClient()
+              .list(
+                  bucketName,
+                  Storage.BlobListOption.prefix(directoryPrefix),
+                  Storage.BlobListOption.currentDirectory());
+    } catch (StorageException e) {
+      log.error("{}, bucket name used:{}", e.getMessage(), bucketName);
+      throw new SnowflakeConnectorException(e.getMessage(), 0);
+    }
+    StorageBatch batchRequest = storageInstanceCreator.getStorageClient().batch();
+    int i = 0;
+    log.debug("Generating and executing the batch request for delete");
+
+    for (Blob blob : blobs.iterateAll()) {
+      batchRequest.delete(blob.getBlobId());
+      i++;
+      if (i >= 100) {
+        batchRequest.submit();
+        batchRequest = storageInstanceCreator.getStorageClient().batch();
+        i = 0;
+      }
+    }
+    if (i > 0) { // Submit any remaining deletions in the last batch
+      batchRequest.submit();
+    }
+    log.debug("batch delete execution finished");
   }
 }

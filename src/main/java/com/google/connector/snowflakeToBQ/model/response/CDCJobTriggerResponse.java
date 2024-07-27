@@ -14,15 +14,16 @@
  * limitations under the License.
  */
 
-package com.google.connector.snowflakeToBQ.service.bigqueryjoboptions;
+package com.google.connector.snowflakeToBQ.model.response;
 
-import com.google.cloud.bigquery.JobInfo;
-import com.google.cloud.bigquery.LoadJobConfiguration;
-import com.google.cloud.bigquery.TableId;
+import lombok.Getter;
+import lombok.Setter;
 
-/** Class to help implementing the factory pattern for LoadOption. */
-public interface LoadJobOptions {
-
-  LoadJobConfiguration createLoadJob(
-      TableId tableId, String sourceURI, JobInfo.WriteDisposition writeDisposition);
+/** The pojo file for Google Cloud Storage Service response */
+@Setter
+@Getter
+public class CDCJobTriggerResponse {
+  private String tableName;
+  private String taskId;
+  private String baseTableName;
 }
