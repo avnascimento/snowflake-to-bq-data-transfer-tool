@@ -22,6 +22,7 @@ import com.google.connector.snowflakeToBQ.model.datadto.*;
 import com.google.connector.snowflakeToBQ.model.request.SFCDCRequestDTO;
 import com.google.connector.snowflakeToBQ.model.request.SFDataMigrationRequestDTO;
 import com.google.connector.snowflakeToBQ.model.request.SFExtractAndTranslateDDLRequestDTO;
+import com.google.connector.snowflakeToBQ.model.request.SnowflakeUnloadToGCSRequestDTO;
 import com.google.connector.snowflakeToBQ.model.response.SFDataMigrationResponse;
 import com.google.connector.snowflakeToBQ.util.PropertyManager;
 import org.slf4j.MDC;
@@ -49,6 +50,7 @@ public interface MigrateRequestMapper {
     applicationConfigData.setTargetDatabaseName(sfDataMigrationRequestDTO.getTargetDatabaseName());
     applicationConfigData.setTargetSchemaName(sfDataMigrationRequestDTO.getTargetSchemaName());
     applicationConfigData.setTargetTableName(sfDataMigrationRequestDTO.getSourceTableName());
+    applicationConfigData.setWarehouse(sfDataMigrationRequestDTO.getWarehouse());
     applicationConfigData.setGcsBucketForDDLs(sfDataMigrationRequestDTO.getGcsBucketForDDLs());
     applicationConfigData.setGcsBucketForTranslation(
         sfDataMigrationRequestDTO.getGcsBucketForTranslation());
@@ -279,8 +281,8 @@ public interface MigrateRequestMapper {
     return gcsDetailsDataDTO;
   }
 
-  /** This method just a helper method for above code so that duplicate code gets avoided. */
-  static TranslateDDLDataDTO getTranslateDDLDataDTO(
+  /** This method is just a helper method for above code so that duplicate code gets avoided. */
+  private static TranslateDDLDataDTO getTranslateDDLDataDTO(
       String sourceDatabaseName,
       String sourceSchemaName,
       String targetDatabaseName,
@@ -296,6 +298,56 @@ public interface MigrateRequestMapper {
     translateDDLDataDTO.setTranslationJobLocation(translationJobLocation);
     translateDDLDataDTO.setGcsBucketForTranslation(gcsBucketForTranslation);
     return translateDDLDataDTO;
+  }
+
+  /**
+   * Method to convert {@link ApplicationConfigData} values to the {@link
+   * SnowflakeUnloadToGCSDataDTO}.
+   */
+  static SnowflakeUnloadToGCSDataDTO applicationConfigDataToSnowflakeUnloadToGCSDataDTO(
+      ApplicationConfigData applicationConfigData) {
+    SnowflakeUnloadToGCSDataDTO snowflakeUnloadToGCSDataDTO = new SnowflakeUnloadToGCSDataDTO();
+    snowflakeUnloadToGCSDataDTO.setDatabaseName(applicationConfigData.getSourceDatabaseName());
+    snowflakeUnloadToGCSDataDTO.setSchemaName(applicationConfigData.getSourceSchemaName());
+    snowflakeUnloadToGCSDataDTO.setTableName(applicationConfigData.getSourceTableName());
+    snowflakeUnloadToGCSDataDTO.setWarehouse(applicationConfigData.getWarehouse());
+    snowflakeUnloadToGCSDataDTO.setSnowflakeStageLocation(
+        applicationConfigData.getSnowflakeStageLocation());
+    snowflakeUnloadToGCSDataDTO.setSnowflakeFileFormatValue(
+        applicationConfigData.getSnowflakeFileFormatValue());
+    return snowflakeUnloadToGCSDataDTO;
+  }
+
+  /**
+   * Method to convert {@link SnowflakeUnloadToGCSRequestDTO} values to the {@link
+   * SnowflakeUnloadToGCSDataDTO}.
+   */
+  static SnowflakeUnloadToGCSDataDTO snowflakeUnloadToGCSRequestToSnowflakeUnloadToGCSDataDTO(
+      String tableName, SnowflakeUnloadToGCSRequestDTO snowflakeUnloadToGCSRequestDTO) {
+    SnowflakeUnloadToGCSDataDTO snowflakeUnloadToGCSDataDTO = new SnowflakeUnloadToGCSDataDTO();
+    snowflakeUnloadToGCSDataDTO.setDatabaseName(
+        snowflakeUnloadToGCSRequestDTO.getSourceDatabaseName());
+    snowflakeUnloadToGCSDataDTO.setSchemaName(snowflakeUnloadToGCSRequestDTO.getSourceSchemaName());
+    snowflakeUnloadToGCSDataDTO.setTableName(tableName);
+    snowflakeUnloadToGCSDataDTO.setWarehouse(snowflakeUnloadToGCSRequestDTO.getWarehouse());
+    snowflakeUnloadToGCSDataDTO.setSnowflakeStageLocation(
+        snowflakeUnloadToGCSRequestDTO.getSnowflakeStageLocation());
+    snowflakeUnloadToGCSDataDTO.setSnowflakeFileFormatValue(
+        snowflakeUnloadToGCSRequestDTO.getSnowflakeFileFormatValue());
+    return snowflakeUnloadToGCSDataDTO;
+  }
+
+  /** Creating a copy of {@link DDLDataDTO} */
+  static DDLDataDTO cloneDDLDataDTO(DDLDataDTO ddlDataDTO) {
+    DDLDataDTO ddlDataDTO1 = new DDLDataDTO();
+    ddlDataDTO1.setDatabase(ddlDataDTO.isDatabase());
+    ddlDataDTO1.setSourceSchemaName(ddlDataDTO.getSourceSchemaName());
+    ddlDataDTO1.setSourceDatabaseName(ddlDataDTO.getSourceDatabaseName());
+    ddlDataDTO1.setSourceTableName(ddlDataDTO.getSourceTableName());
+    ddlDataDTO1.setSchema(ddlDataDTO.isSchema());
+    ddlDataDTO1.setTargetDatabaseName(ddlDataDTO.getTargetDatabaseName());
+    ddlDataDTO1.setTargetSchemaName(ddlDataDTO.getTargetSchemaName());
+    return ddlDataDTO1;
   }
 
   static CDCBigQueryDetailsDataDTO cdcJobRequestToBigQueryDetailDataDto(
