@@ -27,7 +27,7 @@ import lombok.Setter;
  */
 @Setter
 @Getter
-public class SFCDCRequestDTO extends CommonRequestDTO {
+public class SFCDCRequestDTO extends SFExtractAndTranslateDDLRequestDTO {
 
   @NotNull(message = "The isBQTableExits property must be true/false")
   private boolean bqTableExists;

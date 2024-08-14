@@ -29,7 +29,7 @@ import org.springframework.stereotype.Repository;
  */
 @Repository
 @EnableJpaRepositories(
-    basePackageClasses = {CDCJobConfigDataRepository.class, SnowflakesJdbcDataRepository.class})
+    basePackageClasses = {CDCJobConfigDataRepository.class})
 public interface CDCJobConfigDataRepository extends JpaRepository<CDCJobConfigData, Long> {
   CDCJobConfigData findByTaskId(String taskId);
 }
