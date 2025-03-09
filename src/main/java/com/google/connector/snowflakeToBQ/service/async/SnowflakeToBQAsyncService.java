@@ -23,10 +23,12 @@ import com.google.connector.snowflakeToBQ.entity.ApplicationConfigData;
 import com.google.connector.snowflakeToBQ.mapper.MigrateRequestMapper;
 import com.google.connector.snowflakeToBQ.model.OperationResult;
 import com.google.connector.snowflakeToBQ.model.datadto.BigQueryDetailsDataDTO;
+import com.google.connector.snowflakeToBQ.model.datadto.STSDataDTO;
 import com.google.connector.snowflakeToBQ.model.datadto.SnowflakeUnloadToGCSDataDTO;
 import com.google.connector.snowflakeToBQ.service.ApplicationConfigDataService;
 import com.google.connector.snowflakeToBQ.service.BigQueryOperationsService;
 import com.google.connector.snowflakeToBQ.service.GoogleCloudStorageService;
+import com.google.connector.snowflakeToBQ.service.S3ToBigQueryServiceUsingSTS;
 import com.google.connector.snowflakeToBQ.service.SnowflakesService;
 import com.google.connector.snowflakeToBQ.util.PropertyManager;
 import java.time.LocalDateTime;
@@ -36,6 +38,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
@@ -57,15 +60,22 @@ public class SnowflakeToBQAsyncService {
 
   final GoogleCloudStorageService googleCloudStorageService;
 
+  final S3ToBigQueryServiceUsingSTS s3ToBigQueryServiceUsingSTS;
+
+  @Value("${temp.gcs.bucket}")
+  private String tempGCSBucketForS3Data;
+
   public SnowflakeToBQAsyncService(
       BigQueryOperationsService bigQueryOperationsService,
       SnowflakesService snowflakesService,
       ApplicationConfigDataService applicationConfigDataService,
-      GoogleCloudStorageService googleCloudStorageService) {
+      GoogleCloudStorageService googleCloudStorageService,
+      S3ToBigQueryServiceUsingSTS s3ToBigQueryServiceUsingSTS) {
     this.bigQueryOperationsService = bigQueryOperationsService;
     this.snowflakesService = snowflakesService;
     this.applicationConfigDataService = applicationConfigDataService;
     this.googleCloudStorageService = googleCloudStorageService;
+    this.s3ToBigQueryServiceUsingSTS = s3ToBigQueryServiceUsingSTS;
   }
 
   /**
@@ -177,7 +187,27 @@ public class SnowflakeToBQAsyncService {
       applicationConfigDataService.saveApplicationConfigDataService(applicationConfigData);
     }
 
-    // Checking if this step is already completed
+    if ("AWS".equals(applicationConfigData.getCloudProvider())
+        && !applicationConfigData.isSTSTransferComplete()) {
+      log.info(
+          "Inside the if for Cloud Provide::{}, and initiating the STS transfer",
+          applicationConfigData.getCloudProvider());
+      STSDataDTO stsDataDTO =
+          MigrateRequestMapper.migrateRequestToDTSDataDto(applicationConfigData);
+      stsDataDTO.setTempGCSBucketNameForS3Data(tempGCSBucketForS3Data);
+      s3ToBigQueryServiceUsingSTS.transferS3FilesToGCS(stsDataDTO);
+
+      applicationConfigData.setSTSTransferComplete(true);
+      applicationConfigData.setLastUpdatedTime(
+          PropertyManager.getDateInDesiredFormat(LocalDateTime.now(), OUTPUT_FORMATTER1));
+      applicationConfigDataService.saveApplicationConfigDataService(applicationConfigData);
+      // Setting this bucket to the dto because in case of AWS Snowflake unloads the data to S3
+      // which get migrated to the below temporary GCS bucket and BQ load will use the same bucket
+      // to load the data to BigQuery
+      bigQueryDetailsDataDTO.setSnowflakeDataUnloadGCSPath(tempGCSBucketForS3Data);
+    }
+
+    // Checking if this step is already completed and provide is GCS
     if (!applicationConfigData.isDataLoadedInBQ()) {
       try {
         bigQueryOperationsService.loadBigQueryJob(bigQueryDetailsDataDTO);

@@ -38,4 +38,6 @@ public class SnowflakeUnloadToGCSDataDTO {
   private String warehouse;
 
   private String snowflakeFileFormatValue;
+
+  private String cloudProvider;
 }

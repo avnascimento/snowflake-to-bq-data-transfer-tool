@@ -109,4 +109,10 @@ public class ApplicationConfigData implements Serializable {
 
   @Column(name = "request_log_id")
   private String requestLogId;
+
+  @Column(name = "cloud_provider")
+  private String cloudProvider;
+
+  @Column(name = "is_sts_transfer_complete")
+  private boolean isSTSTransferComplete;
 }

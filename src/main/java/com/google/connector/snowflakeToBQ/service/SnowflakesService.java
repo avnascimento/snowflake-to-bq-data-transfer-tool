@@ -58,9 +58,13 @@ public class SnowflakesService {
 
   public String executeUnloadDataCommand(SnowflakeUnloadToGCSDataDTO snowflakeUnloadToGCSDataDTO) {
 
+    // Get the provider from the snowflakeUnloadToGCSDataDTO.getCloudProvider(), can fetching the
+    // appropriate value from snowflake_request_body.json
+    // either of UnloadDataRequestAWS or UnloadDataRequestGCP will be fetched.
     String command =
         resolvePlaceholders(
-            snowflakeConfigLoader.getSnowflakeUnloadRequestBody("UnloadDataRequest"),
+            snowflakeConfigLoader.getSnowflakeUnloadRequestBody(
+                "UnloadDataRequest" + snowflakeUnloadToGCSDataDTO.getCloudProvider()),
             getPlaceHoldersMap(snowflakeUnloadToGCSDataDTO));
     log.info("Snowflake Command to be executed from Rest API:{}", command);
 

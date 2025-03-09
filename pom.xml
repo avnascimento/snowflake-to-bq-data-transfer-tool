@@ -42,6 +42,7 @@ limitations under the License.
         <google-cloud-storage.version>2.33.0</google-cloud-storage.version>
         <google-cloud-bigquery.version>2.36.0</google-cloud-bigquery.version>
         <google-api-client.version>2.6.0</google-api-client.version>
+        <google-cloud-storage-transfer.version>1.54.0</google-cloud-storage-transfer.version>
         <jacoco-maven-plugin.version>0.8.10</jacoco-maven-plugin.version>
         <ehcache.version>3.10.8</ehcache.version>
     </properties>
@@ -54,6 +55,14 @@ limitations under the License.
                 <version>${spring.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>com.google.cloud</groupId>
+                <artifactId>google-cloud-bom</artifactId>
+                <version>0.236.0</version> <!-- Use latest stable version -->
+                <scope>import</scope>
+                <type>pom</type>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -168,19 +177,16 @@ limitations under the License.
         <dependency>
             <groupId>com.google.cloud</groupId>
             <artifactId>google-cloud-bigquerymigration</artifactId>
-            <version>${google-cloud-bigquerymigration.version}</version>
         </dependency>
 
         <dependency>
             <groupId>com.google.cloud</groupId>
             <artifactId>google-cloud-storage</artifactId>
-            <version>${google-cloud-storage.version}</version>
         </dependency>
 
         <dependency>
             <groupId>com.google.cloud</groupId>
             <artifactId>google-cloud-bigquery</artifactId>
-            <version>${google-cloud-bigquery.version}</version>
         </dependency>
 
         <dependency>
@@ -189,6 +195,10 @@ limitations under the License.
             <version>${google-api-client.version}</version>
         </dependency>
 
+        <dependency>
+            <groupId>com.google.cloud</groupId>
+            <artifactId>google-cloud-storage-transfer</artifactId>
+        </dependency>
     </dependencies>
 
     <build>

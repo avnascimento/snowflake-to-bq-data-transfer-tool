@@ -18,6 +18,7 @@ package com.google.connector.snowflakeToBQ.service.async;
 
 import static com.google.connector.snowflakeToBQ.util.ErrorCode.TABLE_ALREADY_EXISTS;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 
@@ -25,10 +26,12 @@ import com.google.connector.snowflakeToBQ.base.AbstractTestBase;
 import com.google.connector.snowflakeToBQ.entity.ApplicationConfigData;
 import com.google.connector.snowflakeToBQ.model.OperationResult;
 import com.google.connector.snowflakeToBQ.model.datadto.BigQueryDetailsDataDTO;
+import com.google.connector.snowflakeToBQ.model.datadto.STSDataDTO;
 import com.google.connector.snowflakeToBQ.model.datadto.SnowflakeUnloadToGCSDataDTO;
 import com.google.connector.snowflakeToBQ.repository.ApplicationConfigDataRepository;
 import com.google.connector.snowflakeToBQ.service.BigQueryOperationsService;
 import com.google.connector.snowflakeToBQ.service.GoogleCloudStorageService;
+import com.google.connector.snowflakeToBQ.service.S3ToBigQueryServiceUsingSTS;
 import com.google.connector.snowflakeToBQ.service.SnowflakesService;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -48,6 +51,8 @@ public class SnowflakeToBQAsyncServiceTest extends AbstractTestBase {
   @MockBean SnowflakesService snowflakesService;
 
   @MockBean GoogleCloudStorageService googleCloudStorageService;
+
+  @MockBean S3ToBigQueryServiceUsingSTS s3ToBigQueryServiceUsingSTS;
 
   @Before
   public void setUp() {
@@ -169,10 +174,43 @@ public class SnowflakeToBQAsyncServiceTest extends AbstractTestBase {
     applicationConfigData.setTargetSchemaName("targetschema");
     applicationConfigData.setTargetTableName("targettablename");
 
+    // This is set to make the negative if condition true (applicationConfigData.isSTSTransferComplete())
+    applicationConfigData.setSTSTransferComplete(true);
+    applicationConfigData.setCloudProvider("AWS");
+
     CompletableFuture<OperationResult<ApplicationConfigData>> retrunedResult =
         snowflakeToBQAsyncService.snowflakeUnloadAndLoadToBQLoad(applicationConfigData);
     Assert.assertFalse(retrunedResult.get().isSuccess());
     Assert.assertNull(retrunedResult.get().getResult());
     Assert.assertEquals("targettablename, Error:null", retrunedResult.get().getErrorMessage());
+  }
+
+  @Test
+  public void testSTSFlowExecution() throws ExecutionException, InterruptedException {
+    when(bigQueryOperationsService.createTableUsingDDL(any(String.class), any(String.class)))
+        .thenReturn(true);
+    when(bigQueryOperationsService.loadBigQueryJob(any(BigQueryDetailsDataDTO.class)))
+        .thenReturn(true);
+    when(snowflakesService.executeUnloadDataCommand(any(SnowflakeUnloadToGCSDataDTO.class)))
+        .thenReturn("1234-abdc-fghi-handle");
+    when(googleCloudStorageService.getContentFromGCSFile(any(String.class), any(String.class)))
+        .thenReturn(CREATE_TABLE);
+    doNothing().when(s3ToBigQueryServiceUsingSTS).transferS3FilesToGCS(any(STSDataDTO.class));
+    ApplicationConfigData applicationConfigData = new ApplicationConfigData();
+    applicationConfigData.setId(1L);
+    applicationConfigData.setBQTableCreated(false);
+    applicationConfigData.setTargetDatabaseName("targetdatabase");
+    applicationConfigData.setTargetSchemaName("targetschema");
+    applicationConfigData.setTargetTableName("targettablename");
+    // This is the main condition for this test
+    applicationConfigData.setSTSTransferComplete(false);
+    applicationConfigData.setCloudProvider("AWS");
+
+    CompletableFuture<OperationResult<ApplicationConfigData>> returnedResult =
+        snowflakeToBQAsyncService.snowflakeUnloadAndLoadToBQLoad(applicationConfigData);
+    Assert.assertTrue(returnedResult.get().isSuccess());
+    Assert.assertTrue(returnedResult.get().getResult().isBQTableCreated());
+    Assert.assertTrue(returnedResult.get().getResult().isDataUnloadedFromSnowflake());
+    Assert.assertTrue(returnedResult.get().getResult().isDataLoadedInBQ());
   }
 }

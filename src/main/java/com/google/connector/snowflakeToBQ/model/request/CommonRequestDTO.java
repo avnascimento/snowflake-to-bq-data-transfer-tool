@@ -46,6 +46,9 @@ public class CommonRequestDTO {
 
   private String location;
 
+  @NotBlank(message = "cloud provider can not be empty")
+  private String cloudProvider;
+
   @Override
   public String toString() {
     return "CommonRequestDTO{"
@@ -65,6 +68,9 @@ public class CommonRequestDTO {
         + '\''
         + ", location='"
         + location
+        + '\''
+        + ", cloudProvider='"
+        + cloudProvider
         + '\''
         + '}';
   }

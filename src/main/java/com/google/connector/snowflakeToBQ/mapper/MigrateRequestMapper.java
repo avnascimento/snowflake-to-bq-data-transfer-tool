@@ -54,6 +54,7 @@ public interface MigrateRequestMapper {
     applicationConfigData.setSnowflakeFileFormatValue(
         sfDataMigrationRequestDTO.getSnowflakeFileFormatValue());
     applicationConfigData.setRequestLogId(MDC.get("requestLogId"));
+    applicationConfigData.setCloudProvider(sfDataMigrationRequestDTO.getCloudProvider());
 
     return applicationConfigData;
   }
@@ -268,6 +269,7 @@ public interface MigrateRequestMapper {
         applicationConfigData.getSnowflakeStageLocation());
     snowflakeUnloadToGCSDataDTO.setSnowflakeFileFormatValue(
         applicationConfigData.getSnowflakeFileFormatValue());
+    snowflakeUnloadToGCSDataDTO.setCloudProvider(applicationConfigData.getCloudProvider());
     return snowflakeUnloadToGCSDataDTO;
   }
 
@@ -287,6 +289,7 @@ public interface MigrateRequestMapper {
         snowflakeUnloadToGCSRequestDTO.getSnowflakeStageLocation());
     snowflakeUnloadToGCSDataDTO.setSnowflakeFileFormatValue(
         snowflakeUnloadToGCSRequestDTO.getSnowflakeFileFormatValue());
+    snowflakeUnloadToGCSDataDTO.setCloudProvider(snowflakeUnloadToGCSRequestDTO.getCloudProvider());
     return snowflakeUnloadToGCSDataDTO;
   }
 
@@ -301,5 +304,23 @@ public interface MigrateRequestMapper {
     ddlDataDTO1.setTargetDatabaseName(ddlDataDTO.getTargetDatabaseName());
     ddlDataDTO1.setTargetSchemaName(ddlDataDTO.getTargetSchemaName());
     return ddlDataDTO1;
+  }
+
+  /**
+   * Method to extract {@link STSDataDTO} values from the {@link ApplicationConfigData}
+   */
+  static STSDataDTO migrateRequestToDTSDataDto(
+      ApplicationConfigData applicationConfigData) {
+    STSDataDTO STSDataDTO = new STSDataDTO();
+    STSDataDTO.setUniqueIdentifier(applicationConfigData.getId());
+    STSDataDTO.setProjectId(applicationConfigData.getTargetDatabaseName());
+    STSDataDTO.setDatasetId(applicationConfigData.getTargetSchemaName());
+    STSDataDTO.setTableName(applicationConfigData.getTargetTableName());
+    STSDataDTO.setSnowflakeDataUnloadGCSPath(
+        applicationConfigData.getSnowflakeStageLocation());
+    STSDataDTO.setBqLoadFileFormat(applicationConfigData.getBqLoadFileFormat());
+    STSDataDTO.setLocation(applicationConfigData.getLocation());
+    STSDataDTO.setCloudProvider(applicationConfigData.getCloudProvider());
+    return STSDataDTO;
   }
 }
