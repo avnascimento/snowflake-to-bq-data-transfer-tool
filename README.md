@@ -13,6 +13,7 @@ It can help in automating the historical load migration.
 * Maven
 * Java 11
 * GCP project
+* AWS project(If Snowflake is in AWS)
 * Snowflake project
 * Snowflake Object/Resources
 * Appropriate access to Snowflake account
@@ -90,6 +91,7 @@ java -jar snowflake-to-bq-data-transfer-1.0.0.jar --spring.datasource.h2.url=./a
 --snowflake.account.url={SNOWFLAKE_URL} --gcs.storage.integration=MIGRATION_INTEGRATION --service.account.file.path={Path of service account}"
 ```
 * **service.account.file.path:** This property can be skipped if running using user account.
+* Set these properties if Snowflake is in AWS. `temp.gcs.bucket,aws.access.key.id,aws.secret.access.id`
 
 ## Custom Jar Build
 * Update the [application.properties](src/main/resources/application.properties) file based on your Snowflake instance and need. The properties file contains \

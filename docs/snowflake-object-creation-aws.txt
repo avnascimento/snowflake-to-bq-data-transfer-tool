@@ -1,3 +1,5 @@
+-- This is storage integration which is needed to be created if Snowflake is on AWS. Other objects will
+-- be same as defined in snowflake-object-creation.txt
 CREATE OR REPLACE STORAGE INTEGRATION MIGRATION_INTEGRATION_S3
   TYPE = EXTERNAL_STAGE
   STORAGE_PROVIDER = 'S3'
@@ -5,4 +7,4 @@ CREATE OR REPLACE STORAGE INTEGRATION MIGRATION_INTEGRATION_S3
   STORAGE_AWS_ROLE_ARN = '{AWS ROlE}'
   STORAGE_ALLOWED_LOCATIONS = ('s3://{AWS Bucket Name}/');
 
-# AWS role example: arn:aws:iam::881490090593:role/SnowflakeS3Role
+# AWS role example: arn:aws:iam::121212121:role/SnowflakeS3Role

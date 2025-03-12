@@ -62,7 +62,8 @@ BODY:
             "snowflakeStageLocation":        "snowflake-to-gcs-migration/data-unload",
             "snowflakeFileFormatValue":"SF_GCS_PARQUET_FORMAT1",
             "bqLoadFileFormat":"PARQUET",
-            "warehouse":"MIGRATION_WAREHOUSE_GCP"
+            "warehouse":"MIGRATION_WAREHOUSE_GCP",
+            "cloudProvider":"AWS"
          }
 
 
@@ -83,10 +84,11 @@ gcsBucketForDDLs: This GCS bucket will hold the DDLS extracted from Snowflake fo
 gcsBucketForTranslation: This GCS bucket will hold the translated DDLs which will be used to create table in BigQuery.
 location: location to be used for running translation job and bigquery load
 snowflakeStageLocation: This is basically the storage location, its gets used in creating stage. Different stage prepend this value to other dynamic values.
-                        All the data files from Snowflake will go inside this folder location.
+                        All the data files from Snowflake will go inside this folder location. This stage would be S3 or GCS if Snowflake is on AWS or GCP respectively.
 snowflakeFileFormatValue: The format in which data from Snowflake table will be unloaded to GCS, it should be created beforehand in Snowflake
 bqLoadFileFormat: Load format user by bq load job, it should be compatable with snowflakeFileFormatValue.
 warehouse: Snowflake warehouse which will be used for compute in Snowflake.
+cloudProvider: Possible values are AWS/GCP. This is optional value to define. It should be defined with "AWS", if the Snowflake is on AWS. By default this if "GCS"
 
 ```
 * **CURL command**
@@ -107,7 +109,8 @@ curl --location 'http://localhost:8080/connector/migrate-data' \
         "snowflakeStageLocation": "snowflake-to-gcs-migration/data-unload",
         "snowflakeFileFormatValue":"SF_GCS_CSV_FORMAT1",
         "bqLoadFileFormat":"CSV",
-        "warehouse":"MIGRATION_WAREHOUSE_GCP"
+        "warehouse":"MIGRATION_WAREHOUSE_GCP",
+        "cloudProvider":"AWS"
 }'
 ```
 * This rest API when executed will perform below operations
@@ -180,7 +183,7 @@ curl --location --request POST 'http://localhost:8080/connector/extract-ddl' \
 * **Request URL and Body**
 ```
 Request Type: POST
-URL: http://localhost:8080/connector/snowflake-unload-to-gcs
+URL: http://localhost:8080/connector/snowflake-unload
 BODY: 
         {
          "sourceDatabaseName": "TEST_DATABASE",
@@ -188,7 +191,8 @@ BODY:
          "sourceTableName": "DATES_VALUE",
          "snowflakeStageLocation": "snowflake-to-gcs-migration/data-unload",
          "snowflakeStageLocation": "SF_GCS_CSV_FORMAT1",
-         "warehouse":"MIGRATION_WAREHOUSE_GCP"
+         "warehouse":"MIGRATION_WAREHOUSE_GCP",
+         "cloudProvider":"AWS"
         }
 ```
 * **Definition of body parameters**
@@ -198,12 +202,13 @@ sourceSchemaName: Schema name in a database to be migrated.
 sourceTableName: Table names to be migrated, if full schema is not getting migrated, user can give comma separated value to migrate more than 1 table.
 snowflakeStageLocation: This is basically the storage location, its gets used in creating stage. Different stage prepend this value to other dynamic values.
                         All the data files from Snowflake will go inside this folder location.
-snowflakeFileFormatValue: The format in which data from Snowflake table will be unloaded to GCS, it should be created beforehand in Snowflake.
+snowflakeFileFormatValue: The format in which data from Snowflake table will be unloaded to GCS/S3, it should be created beforehand in Snowflake.
 warehouse: Snowflake warehouse which will be used for compute in Snowflake.
+cloudProvider: Possible values are AWS/GCP. This is optional value to define. It should be defined with "AWS", if the Snowflake is on AWS. By default this if "GCS"
 ```
 * **CURL command**
 ```bash
-curl --location --request POST 'http://localhost:8080/connector/snowflake-unload-to-gcs' \
+curl --location --request POST 'http://localhost:8080/connector/snowflake-unload' \
       --header 'Authorization: Bearer ver:1-hint:29137637956804618-ETMsDgAAAYsB' \
       --header 'Content-Type: application/json' \
       --data-raw '{
@@ -212,7 +217,8 @@ curl --location --request POST 'http://localhost:8080/connector/snowflake-unload
       "sourceTableName":"CUSTOMERS,ORDERS1",
       "snowflakeStageLocation": "snowflake-to-gcs-migration/data-unload",
       "snowflakeFileFormatValue": "SF_GCS_PARQUET_FORMAT1"
-      "warehouse":"MIGRATION_WAREHOUSE_GCP"
+      "warehouse":"MIGRATION_WAREHOUSE_GCP",
+      "cloudProvider":"AWS"
 }
 '
 

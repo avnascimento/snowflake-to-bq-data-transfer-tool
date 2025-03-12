@@ -6,15 +6,14 @@
 
 # 1. Architecture
 
-The diagram below shows the high-level architecture of data transfer from Snowflake to BigQuery via GCS. This migration
-involves schema
-translation and table creation in BigQuery. Currently, it only takes care of bulk/batch load transfer. The details of
+The diagram below shows the high-level architecture of data transfer from Snowflake to BigQuery via GCS(or S3). This migration
+involves schema translation and table creation in BigQuery. Currently, it only takes care of bulk/batch load transfer. The details of
 each step are mentioned
 below:
 
 * The table schema can be extracted from Snowflake using JDBC.
 * A schema translator is used to convert the Snowflake schema to the BigQuery schema.
-* Data is loaded from Snowflake to GCS in a staging bucket.
+* Data is loaded from Snowflake to a staging bucket—GCS if Snowflake is on GCP and S3 if Snowflake is on AWS.
 * A table is created in BigQuery using the translated schema.
 * The data is loaded from GCS to the newly created table in BigQuery.
 
@@ -33,38 +32,68 @@ structured and traceable migration process, it is advisable to establish distinc
 ensuring authorization for relevant objects. The provided script can be utilized to generate all requisite objects
 and resources efficiently
 
-### 1.1.1 GCS Integration/Oauth Access Token
+### 1.1.1 GCS/S3 Integration/Oauth Access Token
 
-Snowflake copy into method is one of the ways to extract/unload data from Snowflake service GCP. We are required to set
-up storage integration in Snowflake and give the necessary Google Cloud Storage(GCS) permission to the Snowflake service
-account so that files can be written to GCS.
+Snowflake `COPY INTO` method is one of the ways to extract/unload data
+from the Snowflake service on GCP or AWS. Depending on the Snowflake
+deployment, data is transferred to Google Cloud Storage (GCS) if Snowflake
+is on GCP and to Amazon S3 if Snowflake is on AWS.
 
-First identify the GCS bucket which will be used for storing the table extraction/unload in Google Cloud Platform(GCP),
-identify the format in which data would be extracted. This should be the supported format of the connector(like CSV,
-Parquet) and Snowflake.
+We are required to set up storage integration in Snowflake and grant the
+necessary permissions—GCS permissions for Snowflake on GCP and S3 permissions
+for Snowflake on AWS—so that files can be written to the respective storage service.
 
-Run the below command to create the storage integration
 
-```CREATE STORAGE INTEGRATION  {INTEGRATION_NAME}
+First, identify the storage bucket that will be used for storing the table extraction/unload—GCS if using Google Cloud
+Platform (GCP) or S3 if using AWS.
+
+Next, determine the format in which the data will be extracted. This should be a format supported by both the connector
+and Snowflake, such as CSV or Parquet.
+
+
+Run the below command to create the storage integration:
+
+For GCS:
+
+```sql
+CREATE STORAGE INTEGRATION {INTEGRATION_NAME}
 TYPE = EXTERNAL_STAGE
 STORAGE_PROVIDER = GCS
 ENABLED = TRUE
-STORAGE_ALLOWED_LOCATIONS  = ('gcs://{GCS_BUCKET_NAME}')
+STORAGE_ALLOWED_LOCATIONS = ('gcs://{GCS_BUCKET_NAME}')
+```
+For S3:
+
+```sql
+CREATE OR REPLACE STORAGE INTEGRATION {INTEGRATION_NAME}
+TYPE = EXTERNAL_STAGE
+STORAGE_PROVIDER = 'S3'
+ENABLED = TRUE
+STORAGE_AWS_ROLE_ARN = '{AWS_ROLE}'
+STORAGE_ALLOWED_LOCATIONS = ('s3://{AWS_BUCKET_NAME}/')
 ```
 
 **Example:**
-
-```CREATE STORAGE INTEGRATION postman_using_copy_into
+For GCS
+```
+CREATE STORAGE INTEGRATION postman_using_copy_into
 TYPE = EXTERNAL_STAGE
 STORAGE_PROVIDER = GCS
 ENABLED = TRUE
-STORAGE_ALLOWED_LOCATIONS  = ('gcs://snowflake-to-gcs-copy-into-may/')
+STORAGE_ALLOWED_LOCATIONS = ('gcs://snowflake-to-gcs-copy-into-may/')
 ```
-
-The GCS path provided here should be a valid GCS bucket path in GCP. Once the integration has been created, the user can
-use the following command to describe the integration and extract the service account (SA) from the output. This SA must
-be granted the necessary permissions to the bucket in GCP, either at the bucket level or project level.
-DESC STORAGE INTEGRATION {INTEGRATION_NAME};
+For s3
+```
+CREATE OR REPLACE STORAGE INTEGRATION postman_using_copy_into
+TYPE = EXTERNAL_STAGE
+STORAGE_PROVIDER = 'S3'
+ENABLED = TRUE
+STORAGE_AWS_ROLE_ARN = 'arn:aws:iam::123456789012:role/my-snowflake-role'
+STORAGE_ALLOWED_LOCATIONS = ('s3://my-s3-bucket/')
+```
+The GCS path provided here should be a valid GCS bucket path in GCP, and the S3 path should be a valid S3 bucket path in AWS.
+Once the integration has been created, the user can use the following command to describe the integration and extract the service account (SA) 
+from the output. This SA must be granted the necessary permissions to the bucket in GCP (for GCS) or the AWS role (for S3).
 
 **Example:**
 
@@ -163,10 +192,9 @@ exists, the connector will throw an error because it will never modify an existi
 
 ### 1.2.5 Unload Snowflake Table To GCS
 
-The connector uses the REST API pattern to make a REST call to Snowflake in order to execute the command in Snowflake.
-Snowflake provides a way to unload data from SF to GCS using its "COPY INTO" command. This step moves the data. The
-prerequisites must be met before this step can be completed.
-Below-mentioned command will be executed from the Connector for each table
+The connector uses the REST API pattern to make a REST call to Snowflake in order to execute the command in Snowflake.  
+Snowflake provides a way to unload data from Snowflake to GCS (or S3) using its "COPY INTO" command. This step moves the data.  
+The prerequisites must be met before this step can be completed.
 
 ```
 {
@@ -180,14 +208,15 @@ Below-mentioned command will be executed from the Connector for each table
 }
 ```
 
-This command creates a stage for each table (e.g., TEST_VALUE) and then runs a copy into command to unload data from
-that table to the GCS bucket defined in storage integration (gs://snowflake-to-gcs-using-code/data-unload) and in above
-command.
+This command creates a stage for each table (e.g., `TEST_VALUE`) and then runs a `COPY INTO` command to unload data from that table to the 
+appropriate storage location—GCS if Snowflake is on GCP or S3 if Snowflake is on AWS. The GCS bucket is defined in the storage integration (`gs://snowflake-to-gcs-using-code/data-unload`) 
+for GCP, or the S3 bucket(`s3://my-s3-bucket/`) for AWS, as specified in the command.
 
-The command is used to unload data from a Snowflake table to a GCS bucket. The stage is created for each table to store
-the data before it is unloaded to the GCS bucket. The copy into command is used to unload the data from the stage to the
-GCS bucket. Users can also provide a query to unload data instead of the entire table, and there are a variety of
-reasons why they might do this. Users don't want every column.
+The command is used to unload data from a Snowflake table to a storage bucket. A stage is created for each table to temporarily store the data before 
+it is unloaded to the respective bucket. The `COPY INTO` command is then used to unload the data from the stage to the storage bucket.
+Users can also provide a query to unload specific data instead of unloading the entire table. This approach can be used for various reasons, 
+such as when users don’t need every column from the table.
+
 
 Some column values are directly not supported in BigQuery like timestamp_LTZ etc so need to format it.
 Users purposely want to encrypt/apply few functions onto the data before unloading.
@@ -207,8 +236,19 @@ command instead of full table name. Below is the JSON file format.
 ```
 CREATE or replace STAGE gcs_stage_copy_into_TEST_VALUE STORAGE_INTEGRATION = data_unload_using_code_oauth URL = 'gcs://snowflake-to-gcs-using-code/data-unload/TEST_VALUE' FILE_FORMAT = sf_gcs_csv_format_oauth; COPY INTO @gcs_stage_copy_into_TEST_VALUE/TEST_VALUE (select datecol, TO_CHAR(datetimecol, 'YYYY-MM-DD HH24:MI:SS')as datetimecol, TO_CHAR(timestampcol, 'YYYY-MM-DD HH24:MI:SS.FF9')as timestampcol from TEST_DATABASE.PUBLIC.DATES_VALUE) OVERWRITE=TRUE HEADER=TRUE
 ```
+## **Note**
+If Snowflake is on AWS and the data is moved to GCS directly instead of using S3, Snowflake incurs an additional cost apart from the egress charges, 
+which are billed per TB. Please refer to the documentation for the latest charges related to multi-cloud and multi-region transfers.
 
-### 1.2.6 Load Data In BigQuery
+
+### 1.2.7 Transfer data from S3 to GCS using STS
+
+When Snowflake is on AWS, the `COPY INTO` command exports the data to S3. However, before the data can be loaded into BigQuery, 
+it must first be available in a GCS bucket. In this case, the Storage Transfer Service (STS) is used to move the data from S3 to GCS, and then it gets loaded into BigQuery.
+
+This process is only required for Snowflake on AWS and is not needed for Snowflake on GCP, where the data is directly unloaded to GCS using the `COPY INTO` command.
+
+### 1.2.8 Load Data In BigQuery
 
 Connector will use the BigQuery Load Java libraries to load the file of data unloaded from Snowflake in GCS into the
 BigQuery Table. During the load process the format can be provided by the user. As of writing this document CSV and
@@ -222,12 +262,12 @@ convert it to String(TO_CHAR(timestampcol, 'YYYY-MM-DD HH24:MI:SS.FF9')) before 
 This column should be defined as a timestamp in BigQuery, so by passing the schema in the load job, BigQuery will store
 the string timestamp in the timestamp column without any issues.
 
-### 1.2.7 Persisting the Connector State
+### 1.2.9 Persisting the Connector State
 
 The connector uses an Embedded H2 database to keep track of its state. The connector performs a variety of tasks, such
 as translation, unloading data, loading data into BigQuery etc.
 
-Heavy lifting activities like Snowflake Unload and BigQuery Load should be restartable if the connector crashes.
+Heavy lifting activities like Snowflake Unload, transfer from S3 to GCS and BigQuery Load should be restartable if the connector crashes.
 
 **Example**, if 10TB of table data has been unloaded from Snowflake, we do not want to repeat it due to a connector
 crash.

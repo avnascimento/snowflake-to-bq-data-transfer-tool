@@ -46,8 +46,7 @@ public class CommonRequestDTO {
 
   private String location;
 
-  @NotBlank(message = "cloud provider can not be empty")
-  private String cloudProvider;
+  private String cloudProvider= "GCP";
 
   @Override
   public String toString() {

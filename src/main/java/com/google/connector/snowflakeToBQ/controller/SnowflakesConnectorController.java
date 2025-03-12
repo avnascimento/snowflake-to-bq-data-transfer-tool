@@ -191,7 +191,7 @@ public class SnowflakesConnectorController {
    * @return response of the operation in @{@link String}. Response just gives a message indicating
    *     * the flow is complete
    */
-  @PostMapping("/snowflake-unload-to-gcs")
+  @PostMapping("/snowflake-unload")
   public ResponseEntity<Map<String, String>> snowflakeUnloadToGCS(
       @NonNull @RequestBody @Valid SnowflakeUnloadToGCSRequestDTO snowflakeUnloadToGCSRequestDTO) {
     String requestLogId = UUID.randomUUID().toString();
