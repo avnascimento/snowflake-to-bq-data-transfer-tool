@@ -219,14 +219,14 @@ limitations under the License.
                         </goals>
                     </execution>
                     <execution>
-                        <id>test-report</id>
+                        <id>report</id>
                         <phase>verify</phase>
                         <goals>
                             <goal>report</goal>
                         </goals>
                     </execution>
                     <execution>
-                        <id>report</id>
+                        <id>test-report</id>
                         <phase>test</phase>
                         <goals>
                             <goal>report</goal>
