@@ -1,5 +1,9 @@
 name: PR Quality Check
 
+dependencies:
+  pre:
+    - sudo apt-get install libxml2-utils
+
 on:
   pull_request:
     branches:
