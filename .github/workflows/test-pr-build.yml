@@ -1,0 +1,54 @@
+name: PR Quality Check
+
+on:
+  pull_request:
+    branches:
+      - main  
+      - cdc
+      - feature/gitactions_buildtest
+
+jobs:
+  build-and-test:
+    name: Build and Run Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+      
+      - name: Install xmllint
+        run: sudo apt install -y libxml2-utils
+
+      - name: Build and run tests with Maven
+        run: mvn clean test
+
+      - name: Extract JaCoCo coverage and enforce threshold
+        run: |
+          echo "Extracting code coverage from jacoco.xml..."
+          
+          # Extract 'LINE' coverage from jacoco.xml
+          LINE_COVERAGE=$(xmllint --xpath "string(//report/counter[@type='LINE']/@covered)" target/site/jacoco/jacoco.xml)
+          MISSED_LINES=$(xmllint --xpath "string(//report/counter[@type='LINE']/@missed)" target/site/jacoco/jacoco.xml)
+          TOTAL_LINES=$((LINE_COVERAGE + MISSED_LINES))
+
+          if [ "$TOTAL_LINES" -eq 0 ]; then
+            echo "No lines found in coverage report."
+            exit 1
+          fi
+
+          COVERAGE_PERCENT=$(( 100 * LINE_COVERAGE / TOTAL_LINES ))
+
+          echo "Line Coverage: $COVERAGE_PERCENT%"
+
+          if [ "$COVERAGE_PERCENT" -lt 80 ]; then
+            echo "❌ Code coverage ($COVERAGE_PERCENT%) is below required 80%."
+            exit 1
+          else
+            echo "✅ Code coverage ($COVERAGE_PERCENT%) is sufficient."
+          fi
