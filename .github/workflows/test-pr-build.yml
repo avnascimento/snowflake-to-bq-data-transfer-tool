@@ -25,18 +25,27 @@ jobs:
       - name: Build and run tests with Maven
         run: mvn clean verify
 
-      - name: Upload JaCoCo report
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: jacoco-report
-          path: target/site/jacoco/index.html
-
-      - name: Check code coverage
+      - name: Extract JaCoCo coverage and enforce threshold
         run: |
-          COVERAGE=$(mvn jacoco:report | grep -oP 'Total.*?\K[0-9]+(?=%)')
-          echo "Coverage: $COVERAGE%"
-          if [ "$COVERAGE" -lt 80 ]; then
-            echo "Code coverage is below 80%"
+          echo "Extracting code coverage from jacoco.xml..."
+          
+          # Extract 'LINE' coverage from jacoco.xml
+          LINE_COVERAGE=$(xmllint --xpath "string(//report/counter[@type='LINE']/@covered)" target/site/jacoco/jacoco.xml)
+          MISSED_LINES=$(xmllint --xpath "string(//report/counter[@type='LINE']/@missed)" target/site/jacoco/jacoco.xml)
+          TOTAL_LINES=$((LINE_COVERAGE + MISSED_LINES))
+
+          if [ "$TOTAL_LINES" -eq 0 ]; then
+            echo "No lines found in coverage report."
             exit 1
+          fi
+
+          COVERAGE_PERCENT=$(( 100 * LINE_COVERAGE / TOTAL_LINES ))
+
+          echo "Line Coverage: $COVERAGE_PERCENT%"
+
+          if [ "$COVERAGE_PERCENT" -lt 80 ]; then
+            echo "❌ Code coverage ($COVERAGE_PERCENT%) is below required 80%."
+            exit 1
+          else
+            echo "✅ Code coverage ($COVERAGE_PERCENT%) is sufficient."
           fi
