@@ -209,9 +209,9 @@ limitations under the License.
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
                 <version>${jacoco-maven-plugin.version}</version>
-                <configuration>
+                <!-- <configuration>
                     <outputDirectory>${project.build.directory}/jacoco</outputDirectory>
-                </configuration>
+                </configuration> -->
                 <executions>
                     <execution>
                         <goals>
