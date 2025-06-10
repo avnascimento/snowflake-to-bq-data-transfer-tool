@@ -1,9 +1,5 @@
 name: PR Quality Check
 
-dependencies:
-  pre:
-    - sudo apt-get install libxml2-utils
-
 on:
   pull_request:
     branches:
@@ -25,6 +21,9 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
+      
+      - name: Install xmllint
+        run: sudo apt install -y libxml2-utils
 
       - name: Build and run tests with Maven
         run: mvn clean verify
